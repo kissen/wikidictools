@@ -94,7 +94,7 @@ func main() {
 		nadded += 1
 
 		if nadded % 1000 == 0 {
-			fmt.Fprintf(os.Stderr, "\r%v: inserted %v words to %v", os.Args[0], nadded, sqlFile)
+			fmt.Fprintf(os.Stderr, "\r%v: processed %v words so far", os.Args[0], nadded)
 		}
 	}
 
