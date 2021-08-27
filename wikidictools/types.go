@@ -12,6 +12,8 @@ type XmlParser interface {
 
 // A single entry of the dictionary.
 type DictionaryEntry struct {
+	Word string
+
 	// Noun defintions. Each entry in the slice contains one possible defintion.
 	// May be nil.
 	Noun []string

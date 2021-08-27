@@ -52,8 +52,10 @@ func nextDictionaryPage(parser wikiparse.Parser) (*wikiparse.Page, error) {
 	}
 }
 
+// Return whether the given page appears to be a page related to some specific
+// word. Filters out meta pages part of the Wiktionary wiki.
 func isDictionaryEntry(page *wikiparse.Page) bool {
-	return !strings.HasPrefix(page.Title, "Wiktionary:")
+	return len(page.Title) > 0  && !strings.ContainsRune(page.Title, ':')
 }
 
 type section int
@@ -66,7 +68,10 @@ const (
 )
 
 func pageToDictEntry(page *wikiparse.Page) *DictionaryEntry {
-	var entry DictionaryEntry
+	entry := DictionaryEntry{
+		Word: page.Title,
+	}
+
 	scanner := bufio.NewScanner(contentFrom(page))
 
 	inEnglishSection := false

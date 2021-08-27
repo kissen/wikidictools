@@ -2,20 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/dustin/go-wikiparse"
 	"io"
 	"os"
-	"strings"
+	"github.com/kissen/wikidictools/wikidictools"
 )
-
-func isDictionaryEntry(page *wikiparse.Page) bool {
-	return !strings.HasPrefix(page.Title, "Wiktionary:")
-}
-
-func textFrom(page *wikiparse.Page) string {
-	latestRevision := &page.Revisions[0]
-	return latestRevision.Text
-}
 
 func main() {
 	xmlFile := os.Args[1]
@@ -25,7 +15,9 @@ func main() {
 		panic(err)
 	}
 
-	parser, err := wikiparse.NewParser(xmlStream)
+	defer xmlStream.Close()
+
+	parser, err := wikidictools.NewXmlParser(xmlStream)
 	if err != nil {
 		panic(err)
 	}
@@ -37,11 +29,7 @@ func main() {
 			break
 		}
 
-		if !isDictionaryEntry(page) {
-			continue
-		}
-
-		fmt.Println(page.Title, textFrom(page)[:20])
+		fmt.Printf("%v %v %v %v\n", page.Word, len(page.Noun), len(page.Verb), len(page.Adjective))
 	}
 
 	if err != io.EOF {
