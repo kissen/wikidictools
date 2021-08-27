@@ -32,6 +32,8 @@ func (xp *xmlParser) Next() (*DictionaryEntry, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "could not read from underlying parser")
 	}
+
+	return pageToDictEntry(page), nil
 }
 
 func nextDictionaryPage(parser wikiparse.Parser) (*wikiparse.Page, error) {
@@ -113,7 +115,22 @@ func pageToDictEntry(page *wikiparse.Page) *DictionaryEntry {
 		}
 
 		// Now we just add elements for each supported section.
+
+		if isTopLevelListEntry(line) {
+			listEntry := getTopLevelListEntryFrom(line)
+
+			switch currentSubSection {
+			case noun:
+				entry.Noun = append(entry.Noun, listEntry)
+			case verb:
+				entry.Verb = append(entry.Verb, listEntry)
+			case adjective:
+				entry.Adjective = append(entry.Adjective, listEntry)
+			}
+		}
 	}
+
+	return &entry
 }
 
 func contentFrom(page *wikiparse.Page) io.Reader {
@@ -138,4 +155,28 @@ func isH3(line string) bool {
 
 func getH3From(line string) string {
 	return strings.ReplaceAll(line, "===", "")
+}
+
+func isTopLevelListEntry(line string) bool {
+	return listIndentLevel(line) == 1
+}
+
+func getTopLevelListEntryFrom(line string) string {
+	withoutPrefix := line[1:]
+	return strings.TrimSpace(withoutPrefix)
+}
+
+func isMediaWikiListChar(r rune) bool {
+	const listPrefixChars = "*#;:"
+	return strings.ContainsRune(listPrefixChars, r)
+}
+
+func listIndentLevel(line string) int {
+	for i, r := range line {
+		if !isMediaWikiListChar(r) {
+			return i
+		}
+	}
+
+	return len(line)
 }
