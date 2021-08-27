@@ -9,7 +9,7 @@ func (e *DictionaryEntry) IsEmpty() bool {
 // Function f returns a bool. If f returns true, ForEachDefintion keeps
 // iterating. If f returns false, iteration stops.
 func (e *DictionaryEntry) ForEachDefintion(f func(string) bool) {
-	choices := [][]string {
+	choices := [][]string{
 		e.Noun, e.Verb, e.Adjective, e.Adverb, e.Phrase,
 	}
 

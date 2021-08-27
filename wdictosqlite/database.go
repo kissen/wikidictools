@@ -60,7 +60,7 @@ func InsertDictionaryEntry(tx *sql.Tx, entry *wikidictools.DictionaryEntry) erro
 
 	entry.ForEachDefintion(func(definition string) bool {
 		insertError = insertDefintion(tx, wordId, definition)
-		return insertError == nil   // keep iterating if no error occured
+		return insertError == nil // keep iterating if no error occured
 	})
 
 	if insertError != nil {
@@ -105,7 +105,7 @@ func createDefintionTable(db Preparer) error {
 	return execute(db, sql)
 }
 
-func execute(db Preparer, sql string, args... interface{}) error {
+func execute(db Preparer, sql string, args ...interface{}) error {
 	statement, err := db.Prepare(sql)
 	if err != nil {
 		return errors.Wrap(err, "could not prepare statement")
@@ -118,7 +118,7 @@ func execute(db Preparer, sql string, args... interface{}) error {
 	return nil
 }
 
-func insert(db Preparer, sql string, args... interface{}) (int64, error) {
+func insert(db Preparer, sql string, args ...interface{}) (int64, error) {
 	statement, err := db.Prepare(sql)
 	if err != nil {
 		return 0, errors.Wrap(err, "could not prepare statement")

@@ -19,7 +19,7 @@ func exitBecauseOf(err error) {
 func main() {
 	// Parse arguments.
 
-	if len(os.Args) != 1 + 2 {
+	if len(os.Args) != 1+2 {
 		println("usage: wdictosqlite XML_FILE SQLITE_FILE")
 		os.Exit(1)
 	}
@@ -93,7 +93,7 @@ func main() {
 
 		nadded += 1
 
-		if nadded % 1000 == 0 {
+		if nadded%1000 == 0 {
 			fmt.Fprintf(os.Stderr, "\r%v: processed %v words so far", os.Args[0], nadded)
 		}
 	}
