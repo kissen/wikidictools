@@ -1,13 +1,20 @@
 package main
 
 import (
-	"github.com/kissen/wikidictools/wikidictools"
+	"database/sql"
+	"fmt"
 	"io"
 	"os"
-	"database/sql"
+
+	"github.com/kissen/wikidictools/wikidictools"
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+func exitBecauseOf(err error) {
+	fmt.Fprintf(os.Stderr, "%v: error: %v", os.Args[0], err)
+	os.Exit(1)
+}
 
 func main() {
 	// Parse arguments.
@@ -23,58 +30,82 @@ func main() {
 	// Create the SQL file ready for writing.
 
 	if err := CreateEmptyFileAt(sqlFile); err != nil {
-		panic(err)
+		exitBecauseOf(err)
 	}
 
 	db, err := sql.Open("sqlite3", sqlFile)
 	if err != nil {
-		panic(err)
+		exitBecauseOf(err)
 	}
 
 	defer db.Close()
 
 	if err := CreateTablesWith(db); err != nil {
-		panic(err)
+		exitBecauseOf(err)
 	}
+
+	fmt.Fprintf(os.Stderr, "%v: created database file %v\n", os.Args[0], sqlFile)
 
 	// Database is now ready. Open the XML file for parsing.
 
 	xmlStream, err := os.Open(xmlFile)
 	if err != nil {
-		panic(err)
+		exitBecauseOf(err)
 	}
 
 	defer xmlStream.Close()
 
 	parser, err := wikidictools.NewXmlParser(xmlStream)
 	if err != nil {
-		panic(err)
+		exitBecauseOf(err)
 	}
 
-	// Read entry by entry. Write to db.
+	fmt.Fprintf(os.Stderr, "%v: opened %v for reading\n", os.Args[0], xmlFile)
+
+	// Read entry by entry. Write to db. We create only one big transaction
+	// for all entries rather than fine-grained steps. While this might
+	// result in problems if the program gets interrupted, doing small transactions
+	// drastically reduces performance. So we opt for one big transaction instead.
 
 	nadded := 0
 
+	tx, err := db.Begin()
+	if err != nil {
+		exitBecauseOf(err)
+	}
+
+	defer tx.Rollback()
+
 	for {
+		// Get the next dictionary entry.
+
 		entry, err := parser.Next()
 
 		if err != nil {
 			break
 		}
 
-		println("INSERT", entry.Word)
+		if entry.IsEmpty() {
+			continue
+		}
 
-		if err := InsertDictionaryEntry(db, entry); err != nil {
-			panic(err)
+		if err := InsertDictionaryEntry(tx, entry); err != nil {
+			exitBecauseOf(err)
 		}
 
 		nadded += 1
-		if nadded >= 100 {
-			break
+
+		if nadded % 1000 == 0 {
+			fmt.Fprintf(os.Stderr, "\r%v: inserted %v words to %v", os.Args[0], nadded, sqlFile)
 		}
 	}
 
-	if false && err != io.EOF {
-		panic(err)
+	if err != io.EOF {
+		exitBecauseOf(err)
 	}
+
+	if err := tx.Commit(); err != nil {
+		exitBecauseOf(err)
+	}
+
 }
