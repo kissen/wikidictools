@@ -74,8 +74,6 @@ func main() {
 		exitBecauseOf(err)
 	}
 
-	defer tx.Rollback()
-
 	for {
 		// Get the next dictionary entry.
 
@@ -100,12 +98,12 @@ func main() {
 		}
 	}
 
-	if err != io.EOF {
+	if err != nil && err != io.EOF {
+		tx.Rollback()
 		exitBecauseOf(err)
 	}
 
 	if err := tx.Commit(); err != nil {
 		exitBecauseOf(err)
 	}
-
 }
