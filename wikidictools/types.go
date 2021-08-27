@@ -25,4 +25,12 @@ type DictionaryEntry struct {
 	// Adjective defintions. Each entry in the slice contains one possible
 	// defintion. May be nil.
 	Adjective []string
+
+	// Adverb defintions. Each entry in the slice contains one possible
+	// defintion. May be nil.
+	Adverb []string
+
+	//  defintions. Each entry in the slice contains one possible
+	// defintion. May be nil.
+	Phrase []string
 }

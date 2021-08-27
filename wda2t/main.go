@@ -2,10 +2,18 @@ package main
 
 import (
 	"fmt"
+	"github.com/kissen/wikidictools/wikidictools"
 	"io"
 	"os"
-	"github.com/kissen/wikidictools/wikidictools"
 )
+
+func printAllOf(entry *wikidictools.DictionaryEntry) {
+	fmt.Println(entry.Word)
+
+	for i, noun := range entry.Noun {
+		fmt.Printf("  %v. %v\n", i+1, noun)
+	}
+}
 
 func main() {
 	xmlFile := os.Args[1]
@@ -23,16 +31,18 @@ func main() {
 	}
 
 	for {
-		page, err := parser.Next()
+		entry, err := parser.Next()
 
 		if err != nil {
 			break
 		}
 
-		fmt.Printf("%v %v %v %v\n", page.Word, len(page.Noun), len(page.Verb), len(page.Adjective))
+		if entry.IsEmpty() {
+			fmt.Println(entry.Word)
+		}
 	}
 
-	if err != io.EOF {
-			panic(err)
+	if false && err != io.EOF {
+		panic(err)
 	}
 }

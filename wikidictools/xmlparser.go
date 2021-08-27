@@ -55,7 +55,7 @@ func nextDictionaryPage(parser wikiparse.Parser) (*wikiparse.Page, error) {
 // Return whether the given page appears to be a page related to some specific
 // word. Filters out meta pages part of the Wiktionary wiki.
 func isDictionaryEntry(page *wikiparse.Page) bool {
-	return len(page.Title) > 0  && !strings.ContainsRune(page.Title, ':')
+	return len(page.Title) > 0 && !strings.ContainsRune(page.Title, ':')
 }
 
 type section int
@@ -64,6 +64,8 @@ const (
 	noun section = iota
 	verb
 	adjective
+	adverb
+	phrase
 	unknown
 )
 
@@ -82,9 +84,11 @@ func pageToDictEntry(page *wikiparse.Page) *DictionaryEntry {
 
 		// Check whether this line introduces a change in language/section.
 
-		if isH2(line) {
-			inEnglishSection = getH2From(line) == "English"
-			continue
+		if isHeading(line) && !inEnglishSection {
+			if getLowerHeadingFrom(line) == "english" {
+				inEnglishSection = true
+				currentSubSection = unknown
+			}
 		}
 
 		// If we are not changing section but are currently not in the English
@@ -98,14 +102,22 @@ func pageToDictEntry(page *wikiparse.Page) *DictionaryEntry {
 		// We are inside the English section. Check whether we found a section
 		// that is supported by the DictionaryEntry type.
 
-		if isH3(line) {
-			switch getH3From(line) {
-			case "Noun":
+		if isHeading(line) {
+			switch getLowerHeadingFrom(line) {
+			case "noun":
 				currentSubSection = noun
-			case "Verb":
+			case "proper noun":
+				currentSubSection = noun
+			case "numeral":
+				currentSubSection = noun
+			case "verb":
 				currentSubSection = verb
-			case "Adjective":
+			case "adjective":
 				currentSubSection = adjective
+			case "adverb":
+				currentSubSection = adverb
+			case "phrase":
+				currentSubSection = phrase
 			default:
 				currentSubSection = unknown
 			}
@@ -131,6 +143,10 @@ func pageToDictEntry(page *wikiparse.Page) *DictionaryEntry {
 				entry.Verb = append(entry.Verb, listEntry)
 			case adjective:
 				entry.Adjective = append(entry.Adjective, listEntry)
+			case adverb:
+				entry.Adverb = append(entry.Adverb, listEntry)
+			case phrase:
+				entry.Phrase = append(entry.Phrase, listEntry)
 			}
 		}
 	}
@@ -143,23 +159,12 @@ func contentFrom(page *wikiparse.Page) io.Reader {
 	return strings.NewReader(latestRevision.Text)
 }
 
-func isH2(line string) bool {
-	startOk := strings.HasPrefix(line, "==") && !strings.HasPrefix(line, "===")
-	endOk := strings.HasSuffix(line, "==") && !strings.HasSuffix(line, "===")
-
-	return startOk && endOk
+func isHeading(line string) bool {
+	return strings.HasPrefix(line, "==") && strings.HasSuffix(line, "==")
 }
 
-func getH2From(line string) string {
-	return strings.ReplaceAll(line, "==", "")
-}
-
-func isH3(line string) bool {
-	return strings.HasPrefix(line, "===") && strings.HasSuffix(line, "===")
-}
-
-func getH3From(line string) string {
-	return strings.ReplaceAll(line, "===", "")
+func getLowerHeadingFrom(line string) string {
+	return strings.ToLower(strings.Trim(line, "="))
 }
 
 func isTopLevelListEntry(line string) bool {
