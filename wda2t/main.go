@@ -37,8 +37,8 @@ func main() {
 			break
 		}
 
-		if entry.IsEmpty() {
-			fmt.Println(entry.Word)
+		if !entry.IsEmpty() {
+			printAllOf(entry)
 		}
 	}
 

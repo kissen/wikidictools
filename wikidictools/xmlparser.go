@@ -5,8 +5,15 @@ import (
 	"github.com/dustin/go-wikiparse"
 	"github.com/pkg/errors"
 	"io"
+	"regexp"
 	"strings"
 )
+
+// Regex pattern to match {{foo|bar|baz}} inside defintions.
+var _META_CURLY_PATTERN = regexp.MustCompile(`(?m){{.*?([^\|]*)}}`)
+
+// Regex pattern to match [[foo|bar|baz]] inside defintions.
+var _META_BRACKET_PATTERN = regexp.MustCompile(`(?m)\[\[.*?([^\|]*?)\]\]`)
 
 type xmlParser struct {
 	wikiParser wikiparse.Parser
@@ -60,21 +67,26 @@ func isDictionaryEntry(page *wikiparse.Page) bool {
 
 type section int
 
-const (
-	noun section = iota
-	verb
-	adjective
-	adverb
-	phrase
-	unknown
-)
-
 func pageToDictEntry(page *wikiparse.Page) *DictionaryEntry {
+	// We are going to fill up this entry line by line.
+
 	entry := DictionaryEntry{
 		Word: page.Title,
 	}
 
 	scanner := bufio.NewScanner(contentFrom(page))
+
+	// To parse each line, we build up a small DFA with states defined
+	// as below.
+
+	const (
+		noun section = iota
+		verb
+		adjective
+		adverb
+		phrase
+		unknown
+	)
 
 	inEnglishSection := false
 	currentSubSection := unknown
@@ -173,7 +185,11 @@ func isTopLevelListEntry(line string) bool {
 
 func getTopLevelListEntryFrom(line string) string {
 	withoutPrefix := line[1:]
-	return strings.TrimSpace(withoutPrefix)
+	trimmed := strings.TrimSpace(withoutPrefix)
+	withoutCurlies := cleanCurlyBracesFrom(trimmed)
+	withoutBrackets := cleanBracketsFrom(withoutCurlies)
+
+	return withoutBrackets
 }
 
 func isMediaWikiListChar(r rune) bool {
@@ -189,4 +205,12 @@ func listIndentLevel(line string) int {
 	}
 
 	return len(line)
+}
+
+func cleanCurlyBracesFrom(line string) string {
+	return _META_CURLY_PATTERN.ReplaceAllString(line, "($1)")
+}
+
+func cleanBracketsFrom(line string) string {
+	return _META_BRACKET_PATTERN.ReplaceAllString(line, "[[$1]]")
 }
