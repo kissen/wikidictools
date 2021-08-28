@@ -7,8 +7,8 @@ import into SQLite. Written in Go.
 Modules
 -------
 
-* "wdictosqlite" is a command line tool for importanting Wiktionary XML dumps
-  [2] into an SQLite database.
+* "wdictosqlite" is a command line tool for importing Wiktionary XML dumps [2]
+  into an SQLite database.
 
 * "wikidictools" is a small Go library for reading Wiktionary XML dumps.
 
