@@ -147,9 +147,15 @@ func main() {
 	}
 
 	for word, wordReferences := range nreferences {
-		// Update number of looked at words.
+		// Update number of looked at words. Report progress.
 
 		ncounted += 1
+
+		if ncounted%1000 == 0 {
+			totalToCount := len(nreferences)
+			percentageCompleted := float64(ncounted) / float64(totalToCount) * 100.0
+			fmt.Fprintf(os.Stderr, "\r%v: set counts for %v (%.1f%%) words", os.Args[0], ncounted, percentageCompleted)
+		}
 
 		// Skip words w/o references. They were already initalized to 0 by
 		// the database.
@@ -163,14 +169,6 @@ func main() {
 		if err := SetNumberOfReferencesOn(tx, word, wordReferences); err != nil {
 			tx.Rollback()
 			exitBecauseOf(err)
-		}
-
-		// Report on progress.
-
-		if ncounted%1000 == 0 {
-			totalToCount := len(nreferences)
-			percentageCompleted := float64(ncounted) / float64(totalToCount) * 100.0
-			fmt.Fprintf(os.Stderr, "\r%v: set counts for %v (%.1f%%) words", os.Args[0], ncounted, percentageCompleted)
 		}
 	}
 
