@@ -35,6 +35,10 @@ func CreateTablesWith(db *sql.DB) error {
 		return rollbackBecauseOf(err, tx)
 	}
 
+	if err := createWordIndex(tx); err != nil {
+		return rollbackBecauseOf(err, tx)
+	}
+
 	if err := createDefintionTable(tx); err != nil {
 		return rollbackBecauseOf(err, tx)
 	}
@@ -108,6 +112,11 @@ func createDefintionTable(db Preparer) error {
 			FOREIGN KEY(word_id) REFERENCES words(id)
 		);`
 
+	return execute(db, sql)
+}
+
+func createWordIndex(db Preparer) error {
+	sql := `CREATE UNIQUE INDEX index_words ON words(word);`
 	return execute(db, sql)
 }
 
