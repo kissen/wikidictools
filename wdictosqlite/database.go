@@ -51,7 +51,7 @@ func InsertDictionaryEntry(tx *sql.Tx, entry *wikidictools.DictionaryEntry) erro
 
 	wordId, err := insertWord(tx, entry.Word)
 	if err != nil {
-		return rollbackBecauseOf(err, tx)
+		return errors.Wrapf(err, "could not insert word=%v", entry.Word)
 	}
 
 	// Now we add the individual defintions.
@@ -64,12 +64,17 @@ func InsertDictionaryEntry(tx *sql.Tx, entry *wikidictools.DictionaryEntry) erro
 	})
 
 	if insertError != nil {
-		return rollbackBecauseOf(insertError, tx)
+		return errors.Wrapf(err, "insertin defintion for word=%v failed", entry.Word)
 	}
 
 	// We are done here! Success!
 
 	return nil
+}
+
+func SetNumberOfReferencesOn(tx *sql.Tx, word string, nreferences int64) error {
+	sql := `UPDATE words SET nreferences = $1 WHERE word = $2;`
+	return execute(tx, sql, nreferences, word)
 }
 
 // Insert word into the database. Returns the assigned id.
@@ -88,7 +93,8 @@ func createWordTable(db Preparer) error {
 	sql := `
 		CREATE TABLE words (
 			id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-			word TEXT NO NULL
+			word TEXT NO NULL,
+			nreferences INTEGER DEFAULT 0
 		);`
 
 	return execute(db, sql)
