@@ -60,7 +60,7 @@ func main() {
 		exitBecauseOf(err)
 	}
 
-	fmt.Fprintf(os.Stderr, "%v: opened %v for reading\n", os.Args[0], xmlFile)
+	fmt.Fprintf(os.Stderr, "%v: opened %v for writing\n", os.Args[0], xmlFile)
 
 	// Read entry by entry. Write to db. We create only one big transaction
 	// for all entries rather than fine-grained steps. While this might
