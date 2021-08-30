@@ -147,6 +147,10 @@ func main() {
 	}
 
 	for word, wordReferences := range nreferences {
+		// Update number of looked at words.
+
+		ncounted += 1
+
 		// Skip words w/o references. They were already initalized to 0 by
 		// the database.
 
@@ -162,8 +166,6 @@ func main() {
 		}
 
 		// Report on progress.
-
-		ncounted += 1
 
 		if ncounted%1000 == 0 {
 			totalToCount := len(nreferences)
