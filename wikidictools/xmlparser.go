@@ -16,17 +16,23 @@ var _META_CURLY_PATTERN = regexp.MustCompile(`(?m){{.*?([^\|]*)}}`)
 var _META_BRACKET_PATTERN = regexp.MustCompile(`(?m)\[\[.*?([^\|]*?)\]\]`)
 
 type xmlParser struct {
+	reader     io.ReadCloser
 	wikiParser wikiparse.Parser
 }
 
 // Create new XmlParser for the given stream.
-func NewXmlParser(rx io.Reader) (XmlParser, error) {
+func NewXmlParser(rx io.ReadCloser) (XmlParser, error) {
 	wikiParser, err := wikiparse.NewParser(rx)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create underlying xml parser")
 	}
 
-	return &xmlParser{wikiParser: wikiParser}, nil
+	created := &xmlParser{
+		reader:     rx,
+		wikiParser: wikiParser,
+	}
+
+	return created, nil
 }
 
 func (xp *xmlParser) Next() (*DictionaryEntry, error) {
@@ -41,6 +47,10 @@ func (xp *xmlParser) Next() (*DictionaryEntry, error) {
 	}
 
 	return pageToDictEntry(page), nil
+}
+
+func (xp *xmlParser) Close() error {
+	return xp.reader.Close()
 }
 
 func nextDictionaryPage(parser wikiparse.Parser) (*wikiparse.Page, error) {

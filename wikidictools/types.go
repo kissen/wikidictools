@@ -1,5 +1,7 @@
 package wikidictools
 
+import "io"
+
 // Represents a parser to MediaWiki XML exports.
 type XmlParser interface {
 	// Return the next entry from the given dictionary. On success, retrns a
@@ -8,6 +10,8 @@ type XmlParser interface {
 	// reached, this method returns (nil, io.EOF) which in most cases is not a
 	// failure case.
 	Next() (*DictionaryEntry, error)
+
+	io.Closer
 }
 
 // A single entry of the dictionary.

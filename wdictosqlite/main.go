@@ -2,87 +2,105 @@ package main
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/kissen/wikidictools/wikidictools"
+	"github.com/pkg/errors"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func exitBecauseOf(err error) {
-	fmt.Fprintf(os.Stderr, "%v: error: %v", os.Args[0], err)
-	os.Exit(1)
+type Arguments struct {
+	XmlFile string
+	SqlFile string
 }
 
-func main() {
-	// Parse arguments.
+type ReferencesMap map[string]int64
 
-	if len(os.Args) != 1+2 {
-		println("usage: wdictosqlite XML_FILE SQLITE_FILE")
+func ParseArguments() Arguments {
+	var args Arguments
+
+	flag.StringVar(&args.XmlFile, "infile", "-", "file from which to read XML")
+	flag.StringVar(&args.SqlFile, "outfile", "", "file to write to, required")
+	flag.Parse()
+
+	if args.SqlFile == "" {
+		flag.Usage()
 		os.Exit(1)
 	}
 
-	xmlFile := os.Args[1]
-	sqlFile := os.Args[2]
+	return args
+}
 
-	// Create the SQL file ready for writing.
-
+func CreateDatabaseFile(sqlFile string) error {
 	if err := CreateEmptyFileAt(sqlFile); err != nil {
 		exitBecauseOf(err)
 	}
 
 	db, err := sql.Open("sqlite3", sqlFile)
 	if err != nil {
-		exitBecauseOf(err)
+		return errors.Wrap(err, "could not create database")
 	}
 
 	defer db.Close()
 
 	if err := CreateTablesWith(db); err != nil {
-		exitBecauseOf(err)
+		return errors.Wrap(err, "could not create tables")
 	}
 
 	fmt.Fprintf(os.Stderr, "%v: created database file %v\n", os.Args[0], sqlFile)
+	return nil
+}
 
-	// Database is now ready. Open the XML file for parsing.
+func OpenInputFileFrom(fileLocation string) (wikidictools.XmlParser, error) {
+	var openedAFile bool
+	var rx io.ReadCloser
 
-	xmlStream, err := os.Open(xmlFile)
-	if err != nil {
-		exitBecauseOf(err)
+	switch fileLocation {
+	case "-":
+		rx = os.Stdin
+		openedAFile = false
+		fmt.Fprintf(os.Stderr, "%v: using stdin for reading\n", os.Args[0])
+	default:
+		fd, err := os.Open(fileLocation)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not open output file")
+		}
+
+		rx = fd
+		openedAFile = true
+		fmt.Fprintf(os.Stderr, "%v: opened %v for reading\n", os.Args[0], fileLocation)
 	}
 
-	defer xmlStream.Close()
-
-	parser, err := wikidictools.NewXmlParser(xmlStream)
+	parser, err := wikidictools.NewXmlParser(rx)
 	if err != nil {
-		exitBecauseOf(err)
+		if openedAFile {
+			rx.Close()
+		}
+		return nil, errors.Wrap(err, "could not create wiktionary parser")
 	}
 
-	fmt.Fprintf(os.Stderr, "%v: opened %v for writing\n", os.Args[0], xmlFile)
+	return parser, nil
+}
 
-	// Read entry by entry. Write to db. We create only one big transaction
-	// for all entries rather than fine-grained steps. While this might
-	// result in problems if the program gets interrupted, doing small transactions
-	// drastically reduces performance. So we opt for one big transaction instead.
-
-	// While we are adding each item to the database, we are also keeping track
-	// of the number of references for each individual word. We use that afterwards
-	// to compute the number of references.
-
+func FillDatabase(dst *sql.DB, src wikidictools.XmlParser) (ReferencesMap, error) {
 	nadded := 0
-	nreferences := make(map[string]int64)
+	nreferences := make(ReferencesMap)
 
-	tx, err := db.Begin()
+	tx, err := dst.Begin()
 	if err != nil {
-		exitBecauseOf(err)
+		return nil, errors.Wrap(err, "could not create transaction")
 	}
+
+	defer tx.Rollback()
 
 	for {
 		// Get the next dictionary entry from the parser.
 
-		entry, err := parser.Next()
+		entry, err := src.Next()
 
 		if err != nil {
 			break
@@ -98,7 +116,7 @@ func main() {
 		// individual definition.
 
 		if err := InsertDictionaryEntry(tx, entry); err != nil {
-			exitBecauseOf(err)
+			return nil, errors.Wrapf(err, "could not add entry for word=%v", entry.Word)
 		}
 
 		// Ensure that we are tracking the word in memory.
@@ -125,26 +143,30 @@ func main() {
 	}
 
 	if err != nil && err != io.EOF {
-		tx.Rollback()
-		exitBecauseOf(err)
+		return nil, errors.Wrap(err, "error while getting next XML entry")
 	}
 
 	if err := tx.Commit(); err != nil {
-		exitBecauseOf(err)
+		return nil, errors.Wrap(err, "could not commit")
 	}
 
 	fmt.Fprintf(os.Stderr, "\n%v: done processing %v words for insertion\n", os.Args[0], nadded)
+	return nreferences, nil
+}
 
+func FillInReferneces(dst *sql.DB, nreferences ReferencesMap) error {
 	// Now that we have written all individual words and definitions, we can
 	// fill in the nreferences field we kept around. Again we do this in one
 	// big transaction.
 
 	ncounted := 0
 
-	tx, err = db.Begin()
+	tx, err := dst.Begin()
 	if err != nil {
-		exitBecauseOf(err)
+		return errors.Wrap(err, "could not start transaction")
 	}
+
+	defer tx.Rollback()
 
 	for word, wordReferences := range nreferences {
 		// Update number of looked at words. Report progress.
@@ -167,21 +189,21 @@ func main() {
 		// Set the individual word.
 
 		if err := SetNumberOfReferencesOn(tx, word, wordReferences); err != nil {
-			tx.Rollback()
-			exitBecauseOf(err)
+			return errors.Wrapf(err, "could not set nreferences on word=%v", word)
 		}
 	}
 
-	if err != nil && err != io.EOF {
-		tx.Rollback()
-		exitBecauseOf(err)
-	}
-
 	if err := tx.Commit(); err != nil {
-		exitBecauseOf(err)
+		return errors.Wrap(err, "could not commit")
 	}
 
 	fmt.Fprintf(os.Stderr, "\n%v done setting counts for %v words\n", os.Args[0], ncounted)
+	return nil
+}
+
+func exitBecauseOf(err error) {
+	fmt.Fprintf(os.Stderr, "%v: error: %v", os.Args[0], err)
+	os.Exit(1)
 }
 
 // Increment m[key] by value. If m has no matching key, m[key] is set to value.
@@ -190,5 +212,47 @@ func addOrIncrement(m map[string]int64, key string, value int64) {
 		m[key] = oldValue + value
 	} else {
 		m[key] = value
+	}
+}
+
+func main() {
+	// Parse arguments.
+
+	args := ParseArguments()
+
+	// Truncate and initalize schema in DB file.
+
+	if err := CreateDatabaseFile(args.SqlFile); err != nil {
+		exitBecauseOf(err)
+	}
+
+	// Start reading XML.
+
+	xmlStream, err := OpenInputFileFrom(args.XmlFile)
+	if err != nil {
+		exitBecauseOf(err)
+	}
+
+	defer xmlStream.Close()
+
+	// Prepare database connection we will use throughout
+	// this operation.
+
+	db, err := sql.Open("sqlite3", args.SqlFile)
+	if err != nil {
+		exitBecauseOf(err)
+	}
+
+	defer db.Close()
+
+	// Fill the database. This is where most work gets done.
+
+	nreferences, err := FillDatabase(db, xmlStream)
+	if err != nil {
+		exitBecauseOf(err)
+	}
+
+	if err := FillInReferneces(db, nreferences); err != nil {
+		exitBecauseOf(err)
 	}
 }
