@@ -43,6 +43,10 @@ func CreateTablesWith(db *sql.DB) error {
 		return rollbackBecauseOf(err, tx)
 	}
 
+	if err := createDefinitionsIndex(tx); err != nil {
+		return rollbackBecauseOf(err, tx)
+	}
+
 	if err := tx.Commit(); err != nil {
 		return errors.Wrap(err, "commit failed")
 	}
@@ -117,6 +121,11 @@ func createDefintionTable(db Preparer) error {
 
 func createWordIndex(db Preparer) error {
 	sql := `CREATE UNIQUE INDEX index_words ON words(word);`
+	return execute(db, sql)
+}
+
+func createDefinitionsIndex(db Preparer) error {
+	sql := `CREATE INDEX index_word_id_to_definition ON definitions(word_id);`
 	return execute(db, sql)
 }
 
