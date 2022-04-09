@@ -133,7 +133,7 @@ func createMetaTable(db Preparer) error {
 	sql := `
 		CREATE TABLE meta (
 			key TEXT NOT NULL,
-			value TEXT NOT NULL,
+			value TEXT NOT NULL
 		);`
 
 	return execute(db, sql)
