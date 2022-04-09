@@ -89,6 +89,12 @@ func SetNumberOfReferencesOn(tx *sql.Tx, word string, nreferences int64) error {
 	return execute(tx, sql, nreferences, word)
 }
 
+// Insert key/value pair into meta table.
+func InsertMeta(db Preparer, key, value string) error {
+	sql := `INSERT INTO meta(key, value) VALUES($1, $2)`
+	return execute(db, sql, key, value)
+}
+
 // Insert word into the database. Returns the assigned id.
 func insertWord(db Preparer, word string) (int64, error) {
 	sql := `INSERT INTO words(word) VALUES($1);`
