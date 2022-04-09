@@ -43,6 +43,10 @@ func CreateTablesWith(db *sql.DB) error {
 		return rollbackBecauseOf(err, tx)
 	}
 
+	if err := createMetaTable(tx); err != nil {
+		return rollbackBecauseOf(err, tx)
+	}
+
 	if err := createDefinitionsIndex(tx); err != nil {
 		return rollbackBecauseOf(err, tx)
 	}
@@ -114,6 +118,16 @@ func createDefintionTable(db Preparer) error {
 			word_id INTEGER,
 			definition TEXT NOT NULL,
 			FOREIGN KEY(word_id) REFERENCES words(id)
+		);`
+
+	return execute(db, sql)
+}
+
+func createMetaTable(db Preparer) error {
+	sql := `
+		CREATE TABLE meta (
+			key TEXT NOT NULL,
+			value TEXT NOT NULL,
 		);`
 
 	return execute(db, sql)
