@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/kissen/wikidictools/wikidictools"
 	"github.com/pkg/errors"
@@ -14,17 +15,27 @@ import (
 )
 
 type Arguments struct {
-	XmlFile string
-	SqlFile string
+	XmlFile   string
+	SqlFile   string
+	TimeStamp string
 }
 
 type ReferencesMap map[string]int64
 
 func ParseArguments() Arguments {
-	var args Arguments
+	var (
+		args       Arguments
+		printUsage bool
+	)
 
-	flag.StringVar(&args.XmlFile, "infile", "-", "file from which to read XML")
+	flag.StringVar(&args.XmlFile, "infile", "--", "file from which to read XML or -- for stdin")
 	flag.StringVar(&args.SqlFile, "outfile", "", "file to write to, required")
+
+	now := time.Now().UTC().Format("2006-01-02T15:04:05")
+	flag.StringVar(&args.TimeStamp, "timestamp", now, "overwrite timestamp embedded in created database")
+
+	flag.BoolVar(&printUsage, "help", false, "print help")
+
 	flag.Parse()
 
 	if args.SqlFile == "" {
@@ -60,7 +71,7 @@ func OpenInputFileFrom(fileLocation string) (wikidictools.XmlParser, error) {
 	var rx io.ReadCloser
 
 	switch fileLocation {
-	case "-":
+	case "--":
 		rx = os.Stdin
 		openedAFile = false
 		fmt.Fprintf(os.Stderr, "%v: using stdin for reading\n", os.Args[0])
@@ -154,7 +165,7 @@ func FillDatabase(dst *sql.DB, src wikidictools.XmlParser) (ReferencesMap, error
 	return nreferences, nil
 }
 
-func FillInReferneces(dst *sql.DB, nreferences ReferencesMap) error {
+func FillInReferences(dst *sql.DB, nreferences ReferencesMap) error {
 	// Now that we have written all individual words and definitions, we can
 	// fill in the nreferences field we kept around. Again we do this in one
 	// big transaction.
@@ -198,6 +209,14 @@ func FillInReferneces(dst *sql.DB, nreferences ReferencesMap) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "\n%v done setting counts for %v words\n", os.Args[0], ncounted)
+	return nil
+}
+
+func WriteMetaData(dst *sql.DB, args *Arguments) error {
+	if err := InsertMeta(dst, "TimeStamp", args.TimeStamp); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -252,7 +271,11 @@ func main() {
 		exitBecauseOf(err)
 	}
 
-	if err := FillInReferneces(db, nreferences); err != nil {
+	if err := FillInReferences(db, nreferences); err != nil {
+		exitBecauseOf(err)
+	}
+
+	if err := WriteMetaData(db, &args); err != nil {
 		exitBecauseOf(err)
 	}
 }
