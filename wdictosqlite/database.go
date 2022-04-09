@@ -143,7 +143,7 @@ func createDefinitionsIndex(db Preparer) error {
 	return execute(db, sql)
 }
 
-func execute(db Preparer, sql string, args ...interface{}) error {
+func execute(db Preparer, sql string, args ...any) error {
 	statement, err := db.Prepare(sql)
 	if err != nil {
 		return errors.Wrap(err, "could not prepare statement")
@@ -156,7 +156,7 @@ func execute(db Preparer, sql string, args ...interface{}) error {
 	return nil
 }
 
-func insert(db Preparer, sql string, args ...interface{}) (int64, error) {
+func insert(db Preparer, sql string, args ...any) (int64, error) {
 	statement, err := db.Prepare(sql)
 	if err != nil {
 		return 0, errors.Wrap(err, "could not prepare statement")
