@@ -12,10 +12,13 @@
 
 set -euo pipefail
 
+script_dir="$(dirname "$(readlink -f "$0")")"
+
 source_addr=https://dumps.wikimedia.org/enwiktionary/latest/enwiktionary-latest-pages-articles.xml.bz2
-outfile=enwiktionary-latest-pages-articles.sqlite3
+copying_file="$script_dir/default-copying.txt"
+out_file="$script_dir/enwiktionary-latest-pages-articles.sqlite3"
 
-curl --silent "$source_addr" | bunzip2 | wdictosqlite -outfile "$outfile"
-gzip "$outfile"
+curl --silent "$source_addr" | bunzip2 | wdictosqlite -copying "$copying_file" -outfile "$out_file"
+gzip "$out_file"
 
-echo "$0: created database at $outfile.gz" 1>&2
+echo "$0: created database at $out_file.gz" 1>&2

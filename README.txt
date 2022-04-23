@@ -12,6 +12,12 @@ Modules
 
 * "wikidictools" is a small Go library for reading Wiktionary XML dumps.
 
+Credit
+------
+
+The source code in this directory is licensed under the terms and conditions of
+the MIT license. See file LICENSE for a copy of the license.
+
 References
 ----------
 
