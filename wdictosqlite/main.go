@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"time"
 
@@ -17,7 +18,8 @@ import (
 type Arguments struct {
 	XmlFile   string
 	SqlFile   string
-	TimeStamp string
+	CreatedOn string
+	Copying   string
 }
 
 type ReferencesMap map[string]int64
@@ -28,19 +30,27 @@ func ParseArguments() Arguments {
 		printUsage bool
 	)
 
-	flag.StringVar(&args.XmlFile, "infile", "--", "file from which to read XML or -- for stdin")
-	flag.StringVar(&args.SqlFile, "outfile", "", "file to write to, required")
+	// Set up parameters.
 
 	now := time.Now().UTC().Format("2006-01-02T15:04:05")
-	flag.StringVar(&args.TimeStamp, "timestamp", now, "overwrite timestamp embedded in created database")
 
+	flag.StringVar(&args.XmlFile, "infile", "--", "file from which to read XML or -- for stdin")
+	flag.StringVar(&args.SqlFile, "outfile", "", "file to write to, required")
+	flag.StringVar(&args.CreatedOn, "createdon", now, "overwrite timestamp embedded in created database")
+	flag.StringVar(&args.Copying, "copying", "", "copyright file to embed in database")
 	flag.BoolVar(&printUsage, "help", false, "print help")
+
+	// Parse and validate.
 
 	flag.Parse()
 
 	if args.SqlFile == "" {
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	if args.Copying == "" {
+		fmt.Fprintf(os.Stderr, "%v: warning: missing -copying, not embedding copyright information\n", os.Args[0])
 	}
 
 	return args
@@ -212,9 +222,21 @@ func FillInReferences(dst *sql.DB, nreferences ReferencesMap) error {
 	return nil
 }
 
-func WriteMetaData(dst *sql.DB, args *Arguments) error {
-	if err := InsertMeta(dst, "TimeStamp", args.TimeStamp); err != nil {
+func WriteMetaData(dst *sql.DB, args *Arguments) (err error) {
+	if err = InsertMeta(dst, "CreatedOn", args.CreatedOn); err != nil {
 		return err
+	}
+
+	if args.Copying != "" {
+		var contents []byte
+
+		if contents, err = ioutil.ReadFile(args.Copying); err != nil {
+			return errors.Wrapf(err, "could not read file %v", args.Copying)
+		}
+
+		if err = InsertMeta(dst, "Copying", string(contents)); err != nil {
+			return errors.Wrap(err, "could not embed copyright information")
+		}
 	}
 
 	return nil
