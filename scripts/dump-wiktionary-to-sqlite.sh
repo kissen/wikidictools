@@ -20,5 +20,3 @@ out_file="$script_dir/enwiktionary-latest-pages-articles.sqlite3"
 
 curl --silent "$source_addr" | bunzip2 | wdictosqlite -copying "$copying_file" -outfile "$out_file"
 gzip "$out_file"
-
-echo "$0: created database at $out_file.gz" 1>&2
