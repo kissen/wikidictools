@@ -32,7 +32,7 @@ func ParseArguments() Arguments {
 
 	// Set up parameters.
 
-	now := time.Now().UTC().Format("2006-01-02T15:04:05")
+	now := time.Now().UTC().Format(time.RFC3339)
 
 	flag.StringVar(&args.XmlFile, "infile", "--", "file from which to read XML or -- for stdin")
 	flag.StringVar(&args.SqlFile, "outfile", "", "file to write to, required")
