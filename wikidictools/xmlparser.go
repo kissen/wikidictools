@@ -2,11 +2,12 @@ package wikidictools
 
 import (
 	"bufio"
-	"github.com/dustin/go-wikiparse"
-	"github.com/pkg/errors"
 	"io"
 	"regexp"
 	"strings"
+
+	"github.com/dustin/go-wikiparse"
+	"github.com/pkg/errors"
 )
 
 // Regex pattern to match {{foo|bar|baz}} inside defintions.
@@ -14,6 +15,9 @@ var _META_CURLY_PATTERN = regexp.MustCompile(`(?m){{.*?([^\|]*)}}`)
 
 // Regex pattern to match [[foo|bar|baz]] inside defintions.
 var _META_BRACKET_PATTERN = regexp.MustCompile(`(?m)\[\[.*?([^\|]*?)\]\]`)
+
+// Regex pattern to match (x) where x is exactly one character.
+var _META_SINGLE_CHAR_PAREN_PATTERN = regexp.MustCompile(`(?m)\(.\)`)
 
 type xmlParser struct {
 	reader     io.ReadCloser
@@ -75,8 +79,6 @@ func isDictionaryEntry(page *wikiparse.Page) bool {
 	return len(page.Title) > 0 && !strings.ContainsRune(page.Title, ':')
 }
 
-type section int
-
 func pageToDictEntry(page *wikiparse.Page) *DictionaryEntry {
 	// We are going to fill up this entry line by line.
 
@@ -88,6 +90,8 @@ func pageToDictEntry(page *wikiparse.Page) *DictionaryEntry {
 
 	// To parse each line, we build up a small DFA with states defined
 	// as below.
+
+	type section int
 
 	const (
 		noun section = iota
@@ -158,6 +162,10 @@ func pageToDictEntry(page *wikiparse.Page) *DictionaryEntry {
 		if isTopLevelListEntry(line) {
 			listEntry := getTopLevelListEntryFrom(line)
 
+			if shouldBeSkipped(listEntry) {
+				continue
+			}
+
 			switch currentSubSection {
 			case noun:
 				entry.Noun = append(entry.Noun, listEntry)
@@ -223,4 +231,31 @@ func cleanCurlyBracesFrom(line string) string {
 
 func cleanBracketsFrom(line string) string {
 	return _META_BRACKET_PATTERN.ReplaceAllString(line, "[[$1]]")
+}
+
+func cleanSingleCharParentheses(line string) string {
+	return _META_SINGLE_CHAR_PAREN_PATTERN.ReplaceAllString(line, "")
+}
+
+func shouldBeSkipped(entry string) bool {
+	if isTooShort(entry) {
+		return true
+	}
+
+	if first, last := headAndTailFrom(entry); first == '(' && last == ')' {
+		return true
+	}
+
+	return false
+}
+
+func isTooShort(entry string) bool {
+	return len(entry) <= 1
+}
+
+func headAndTailFrom(s string) (head rune, tail rune) {
+	rstring := []rune(s)
+	size := len(rstring)
+
+	return rstring[0], rstring[size-1]
 }
