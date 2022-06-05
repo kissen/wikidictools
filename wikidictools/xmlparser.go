@@ -73,6 +73,10 @@ func nextDictionaryPage(parser wikiparse.Parser) (*wikiparse.Page, error) {
 			continue
 		}
 
+		if len(page.Revisions) == 0 {
+			continue
+		}
+
 		return page, nil
 	}
 }
@@ -86,11 +90,12 @@ func isDictionaryEntry(page *wikiparse.Page) bool {
 func pageToDictEntry(page *wikiparse.Page) *DictionaryEntry {
 	// We are going to fill up this entry line by line.
 
-	entry := DictionaryEntry{
-		Word: page.Title,
-	}
+	revision := page.Revisions[0]
 
-	scanner := bufio.NewScanner(contentFrom(page))
+	entry := DictionaryEntry{
+		Word:     page.Title,
+		Revision: revision.ID,
+	}
 
 	// To parse each line, we build up a small DFA with states defined
 	// as below.
@@ -108,6 +113,9 @@ func pageToDictEntry(page *wikiparse.Page) *DictionaryEntry {
 
 	inEnglishSection := false
 	currentSubSection := unknown
+
+	payload := strings.NewReader(revision.Text)
+	scanner := bufio.NewScanner(payload)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -186,11 +194,6 @@ func pageToDictEntry(page *wikiparse.Page) *DictionaryEntry {
 	}
 
 	return &entry
-}
-
-func contentFrom(page *wikiparse.Page) io.Reader {
-	latestRevision := &page.Revisions[0]
-	return strings.NewReader(latestRevision.Text)
 }
 
 func isHeading(line string) bool {
