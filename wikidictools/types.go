@@ -16,7 +16,11 @@ type XmlParser interface {
 
 // A single entry of the dictionary.
 type DictionaryEntry struct {
+	// Word this entry is about.
 	Word string
+
+	// Revision of this particular Wiktionary page.
+	Revision uint64
 
 	// Noun defintions. Each entry in the slice contains one possible defintion.
 	// May be nil.
@@ -34,7 +38,7 @@ type DictionaryEntry struct {
 	// defintion. May be nil.
 	Adverb []string
 
-	//  defintions. Each entry in the slice contains one possible
+	// Phrase defintions. Each entry in the slice contains one possible
 	// defintion. May be nil.
 	Phrase []string
 }
