@@ -2,6 +2,7 @@ package wikidictools
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"regexp"
 	"strings"
@@ -18,6 +19,9 @@ var _META_BRACKET_PATTERN = regexp.MustCompile(`(?m)\[\[.*?([^\|]*?)\]\]`)
 
 // Regex pattern to match (x) where x is exactly one character.
 var _META_SINGLE_CHAR_PAREN_PATTERN = regexp.MustCompile(`(?m)\(.\)`)
+
+// REgex pattern that matches (foo=bar).
+var _META_PAREN_EQUALS = regexp.MustCompile(`(?m)\(\w+=\w+\)`)
 
 type xmlParser struct {
 	reader     io.ReadCloser
@@ -202,12 +206,17 @@ func isTopLevelListEntry(line string) bool {
 }
 
 func getTopLevelListEntryFrom(line string) string {
-	withoutPrefix := line[1:]
-	trimmed := strings.TrimSpace(withoutPrefix)
-	withoutCurlies := cleanCurlyBracesFrom(trimmed)
-	withoutBrackets := cleanBracketsFrom(withoutCurlies)
+	// Here we are allocating a bunch of strings which is probably
+	// really bad for performance :^)
 
-	return withoutBrackets
+	line = line[1:]
+	line = strings.TrimSpace(line)
+	line = cleanCurlyBracesFrom(line)
+	line = cleanBracketsFrom(line)
+	line = cleanParenthesesFrom(line)
+	line = addFinalPeriodTo(line)
+
+	return line
 }
 
 func isMediaWikiListChar(r rune) bool {
@@ -258,4 +267,16 @@ func headAndTailFrom(s string) (head rune, tail rune) {
 	size := len(rstring)
 
 	return rstring[0], rstring[size-1]
+}
+
+func cleanParenthesesFrom(line string) string {
+	return _META_PAREN_EQUALS.ReplaceAllString(line, "")
+}
+
+func addFinalPeriodTo(line string) string {
+	if strings.HasSuffix(line, ".") {
+		return line
+	} else {
+		return fmt.Sprintf("%s.", line)
+	}
 }
