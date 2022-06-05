@@ -61,7 +61,7 @@ func CreateTablesWith(db *sql.DB) error {
 func InsertDictionaryEntry(tx *sql.Tx, entry *wikidictools.DictionaryEntry) error {
 	// First we add the word itself.
 
-	wordId, err := insertWord(tx, entry.Word)
+	wordId, err := insertWord(tx, entry.Word, entry.Revision)
 	if err != nil {
 		return errors.Wrapf(err, "could not insert word=%v", entry.Word)
 	}
@@ -96,9 +96,9 @@ func InsertMeta(db Preparer, key, value string) error {
 }
 
 // Insert word into the database. Returns the assigned id.
-func insertWord(db Preparer, word string) (int64, error) {
-	sql := `INSERT INTO words(word) VALUES($1);`
-	return insert(db, sql, word)
+func insertWord(db Preparer, word string, revision uint64) (int64, error) {
+	sql := `INSERT INTO words(word, revision) VALUES($1, $2);`
+	return insert(db, sql, word, revision)
 }
 
 // Insert defintion in the database.
@@ -112,6 +112,7 @@ func createWordTable(db Preparer) error {
 		CREATE TABLE words (
 			id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
 			word TEXT NO NULL,
+			revision BIGINT NOT NULL,
 			nreferences INTEGER DEFAULT 0
 		);`
 
